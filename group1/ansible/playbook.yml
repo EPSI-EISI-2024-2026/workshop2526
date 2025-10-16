@@ -1,0 +1,9 @@
+---
+- hosts: all
+  become: true
+  roles:
+    - role: docker
+    - role: monitoring
+    - role: security
+    - role: backup
+    - role: elastic

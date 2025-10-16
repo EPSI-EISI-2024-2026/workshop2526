@@ -1,0 +1,32 @@
+---
+# Configure Elasticsearch snapshot repository (S3)
+- name: Ensure ES snapshot repo configuration variables
+  ansible.builtin.set_fact:
+    elastic_es_host: "{{ es_host | default('http://localhost:9200') }}"
+    elastic_es_repo: "{{ es_repo | default('poudlard_repo') }}"
+
+- name: Create S3 snapshot repository in Elasticsearch
+  ansible.builtin.uri:
+    url: "{{ elastic_es_host }}/_snapshot/{{ elastic_es_repo }}"
+    method: PUT
+    body_format: json
+    body: |
+      {
+        "type": "s3",
+        "settings": {
+          "bucket": "{{ s3_bucket }}",
+          "region": "{{ s3_region | default('eu-west-3') }}",
+          "base_path": "elasticsearch_snapshots",
+          "compress": true
+        }
+      }
+    headers:
+      Content-Type: application/json
+  register: elastic_es_repo_result
+  failed_when: elastic_es_repo_result.status not in [200,201]
+  when: s3_bucket is defined
+
+- name: Debug ES repo result
+  ansible.builtin.debug:
+    var: elastic_es_repo_result.json
+  when: s3_bucket is defined

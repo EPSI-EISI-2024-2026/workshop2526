@@ -1,0 +1,65 @@
+---
+- name: Ensure apt cache is updated and prerequisites installed
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch=amd64] https://download.docker.com/linux/ubuntu
+      {{ ansible_distribution_release }} stable
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Install docker packages
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
+- name: Ensure user is in docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user | default('ubuntu') }}"
+    groups: docker
+    append: true
+
+- name: Ensure /opt/poudlard/docker exists
+  ansible.builtin.file:
+    path: /opt/poudlard/docker
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy docker-compose file to remote
+  ansible.builtin.copy:
+    src: ../../docker/docker-compose.yml
+    dest: /opt/poudlard/docker/docker-compose.yml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Start services with docker compose
+  community.docker.docker_compose:
+    project_src: /opt/poudlard/docker
+    state: present
+  notify: Restart docker

@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - glpi
+    networks:
+      - front
+    volumes:
+      - ./docker/nginx/conf:/etc/nginx/conf.d:ro
+      - ./docker/nginx/modsecurity:/etc/modsecurity:ro
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  glpi:
+    image: diouxx/glpi:latest
+    environment:
+      - DB_HOST=glpi-db
+      - DB_USER=glpi
+      - DB_PASSWORD=glpi_pass
+    depends_on:
+      - glpi-db
+    networks:
+      - front
+      - internal
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  glpi-db:
+    image: mariadb:10.6
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_pass
+      - MYSQL_DATABASE=glpi
+      - MYSQL_USER=glpi
+      - MYSQL_PASSWORD=glpi_pass
+    volumes:
+      - glpi_db_data:/var/lib/mysql
+    restart: always
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.13
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    restart: always
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q \"status\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.0
+    user: root
+    volumes:
+      - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - ./monitoring/suricata:/var/log/suricata:ro
+    depends_on:
+      - elasticsearch
+    restart: always
+    networks:
+      - monitoring
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS http://elasticsearch:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    restart: always
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:9090/-/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:9.5.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: always
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  suricata:
+    image: jasonish/suricata:latest
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./monitoring/suricata:/var/log/suricata
+    restart: always
+    # Suricata requires host networking on Linux; on macOS Docker Desktop this will not work as expected.
+  cowrie:
+    image: cowrie/cowrie:latest
+    restart: always
+    networks:
+      - front
+    ports:
+      - "2222:2222"
+    volumes:
+      - ./monitoring/cowrie:/cowrie
+    environment:
+      - COWRIE_USER=cowrie
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 2222 || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  glpi_db_data:
+  es_data:
+  cassandra_data:
+  grafana_data:
+  cowrie_data:
+
+networks:
+  front:
+    driver: bridge
+  internal:
+    driver: bridge
+  monitoring:
+    driver: bridge

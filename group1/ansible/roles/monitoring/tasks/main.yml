@@ -1,0 +1,37 @@
+---
+- name: Ensure prometheus directory exists
+  ansible.builtin.file:
+    path: /opt/poudlard/monitoring
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy prometheus config
+  ansible.builtin.copy:
+    src: ../../monitoring/prometheus.yml
+    dest: /opt/poudlard/monitoring/prometheus.yml
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Ensure grafana provisioning directory exists
+  ansible.builtin.file:
+    path: /opt/poudlard/monitoring/grafana/provisioning
+    state: directory
+    recurse: true
+    mode: '0755'
+
+- name: Copy grafana provisioning
+  ansible.builtin.copy:
+    src: ../../monitoring/grafana/provisioning
+    dest: /opt/poudlard/monitoring/grafana/provisioning
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Ensure monitoring services are started via docker-compose
+  community.docker.docker_compose:
+    project_src: /opt/poudlard/docker
+    state: present
+  when: ansible_os_family == 'Debian'

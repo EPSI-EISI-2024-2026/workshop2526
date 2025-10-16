@@ -1,0 +1,77 @@
+---
+- name: Ensure backup directory exists
+  ansible.builtin.file:
+    path: /opt/poudlard/backups
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install awscli for S3 backups
+  ansible.builtin.apt:
+    name: awscli
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Copy backup script
+  ansible.builtin.copy:
+    src: ../../../scripts/backup.sh
+    dest: /opt/poudlard/scripts/backup.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Copy ES snapshot script
+  ansible.builtin.copy:
+    src: ../../../scripts/es_snapshot.sh
+    dest: /opt/poudlard/scripts/es_snapshot.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Copy Cassandra snapshot script
+  ansible.builtin.copy:
+    src: ../../../scripts/cassandra_snapshot.sh
+    dest: /opt/poudlard/scripts/cassandra_snapshot.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Copy upload to s3 script
+  ansible.builtin.copy:
+    src: ../../../scripts/upload_backups_to_s3.sh
+    dest: /opt/poudlard/scripts/upload_backups_to_s3.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Run Elasticsearch snapshot
+  ansible.builtin.command:
+    cmd: /opt/poudlard/scripts/es_snapshot.sh
+    chdir: /opt/poudlard
+  when: ansible_env.HOSTNAME is defined
+  changed_when: false
+
+- name: Run Cassandra snapshot
+  ansible.builtin.command:
+    cmd: /opt/poudlard/scripts/cassandra_snapshot.sh
+    chdir: /opt/poudlard
+  when: ansible_env.HOSTNAME is defined
+  changed_when: false
+
+- name: Upload backups to S3
+  environment:
+    BUCKET: "{{ lookup('env', 'S3_BACKUP_BUCKET') }}"
+  ansible.builtin.command:
+    cmd: /opt/poudlard/scripts/upload_backups_to_s3.sh
+    chdir: /opt/poudlard
+  when: lookup('env', 'S3_BACKUP_BUCKET') != ''
+  changed_when: false
+
+- name: Create cron job for daily backups
+  ansible.builtin.cron:
+    name: "daily_poudlard_backup"
+    minute: 30
+    hour: 2
+    user: root
+    job: "/opt/poudlard/scripts/backup.sh"

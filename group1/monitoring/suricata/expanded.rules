@@ -1,0 +1,10 @@
+# Expanded Suricata rules examples
+
+# Detect SQL injection-like payloads in HTTP URI
+alert http any any -> any any (msg:"SURICATA SQLi in URI"; flow:established,to_server; http.uri; pcre:"/\b(select\b|union\b|information_schema)/i"; sid:2100001; rev:1;)
+
+# Detect XSS attempts in HTTP request body
+alert http any any -> any any (msg:"SURICATA XSS in body"; flow:established,to_server; http_client_body; pcre:"/(<script|javascript:|onerror=|onload=)/i"; sid:2100002; rev:1;)
+
+# Detect suspicious user agent strings (scanner-like)
+alert http any any -> any any (msg:"SURICATA Suspicious User-Agent"; http.user_agent; content:"sqlmap"; nocase; sid:2100003; rev:1;)

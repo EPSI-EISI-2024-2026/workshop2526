@@ -1,0 +1,15 @@
+---
+- name: Restart suricata
+  ansible.builtin.service:
+    name: suricata
+    state: restarted
+
+- name: Restart apache2
+  ansible.builtin.service:
+    name: apache2
+    state: restarted
+
+- name: Restart filebeat
+  ansible.builtin.service:
+    name: filebeat
+    state: restarted

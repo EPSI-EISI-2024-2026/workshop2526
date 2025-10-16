@@ -1,0 +1,105 @@
+---
+- name: Install Suricata
+  ansible.builtin.apt:
+    name: suricata
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
+- name: Ensure Suricata service enabled and started
+  ansible.builtin.service:
+    name: suricata
+    state: started
+    enabled: true
+
+- name: Copy Suricata rules
+  ansible.builtin.copy:
+    src: ../../../monitoring/suricata/rules-placeholder.txt
+    dest: /etc/suricata/rules/local.rules
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart suricata
+
+- name: Copy enhanced Suricata rules
+  ansible.builtin.copy:
+    src: ../../../monitoring/suricata/rules.rules
+    dest: /etc/suricata/rules/rules.rules
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart suricata
+
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Ensure fail2ban started and enabled
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: true
+
+- name: Install ModSecurity (apache2 module as fallback)
+  ansible.builtin.apt:
+    name:
+      - libapache2-mod-security2
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Copy ModSecurity config
+  ansible.builtin.copy:
+    src: ../../../docker/nginx/modsecurity/modsecurity.conf
+    dest: /etc/modsecurity/modsecurity.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart apache2
+
+- name: Copy OWASP CRS setup placeholder
+  ansible.builtin.copy:
+    src: ../../../docker/nginx/modsecurity/crs-setup.conf
+    dest: /etc/modsecurity/crs-setup.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart apache2
+
+- name: Copy Filebeat config
+  ansible.builtin.copy:
+    src: ../../../monitoring/filebeat/filebeat.yml
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart filebeat
+
+- name: Ensure modsecurity directory exists
+  ansible.builtin.file:
+    path: /opt/poudlard/docker/nginx/modsecurity
+    state: directory
+    recurse: true
+    mode: '0755'
+
+- name: Copy ModSecurity configuration
+  ansible.builtin.copy:
+    src: ../../../docker/nginx/modsecurity
+    dest: /opt/poudlard/docker/nginx/modsecurity
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Copy fail2ban config (placeholder)
+  ansible.builtin.copy:
+    src: ../../security/fail2ban/jail.local
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Ensure security services started
+  community.docker.docker_compose:
+    project_src: /opt/poudlard/docker
+    state: present

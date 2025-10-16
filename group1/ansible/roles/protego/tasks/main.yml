@@ -1,0 +1,52 @@
+---
+- name: Ensure required packages are installed (Debian)
+  ansible.builtin.apt:
+    name:
+      - suricata
+      - fail2ban
+      - libapache2-mod-security2
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
+- name: Ensure modsecurity directory exists in docker nginx path
+  ansible.builtin.file:
+    path: /opt/poudlard/docker/nginx/modsecurity
+    state: directory
+    recurse: true
+    mode: '0755'
+
+- name: Copy ModSecurity configs
+  ansible.builtin.copy:
+    src: ../../docker/nginx/modsecurity
+    dest: /opt/poudlard/docker/nginx/modsecurity
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart webserver
+
+- name: Copy Suricata rules
+  ansible.builtin.copy:
+    src: ../../monitoring/suricata/local.rules
+    dest: /etc/suricata/rules/local.rules
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart suricata
+
+- name: Copy Cowrie placeholder config
+  ansible.builtin.copy:
+    src: ../../monitoring/cowrie/cowrie.cfg
+    dest: /opt/poudlard/cowrie/cowrie.cfg
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Ensure fail2ban jail conf exists
+  ansible.builtin.copy:
+    src: ../security/files/fail2ban/jail.local
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart fail2ban

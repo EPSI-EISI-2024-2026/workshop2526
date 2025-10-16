@@ -1,0 +1,19 @@
+numpy
+pandas
+matplotlib
+seaborn
+plotly
+scikit-learn
+tensorflow
+librosa
+resampy
+speechrecognition
+# pyaudio
+gtts
+nltk
+spacy
+opencv-python
+Pillow
+jupyter
+requests
+PyPDF2

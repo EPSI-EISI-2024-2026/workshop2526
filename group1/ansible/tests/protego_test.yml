@@ -1,0 +1,11 @@
+---
+- name: Protego Maxima test runner (local)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Run security test scripts
+      ansible.builtin.command:
+        cmd: /bin/bash scripts/test_security/run_tests.sh
+      args:
+        chdir: "{{ playbook_dir }}"
